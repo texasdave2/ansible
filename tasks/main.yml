@@ -1,0 +1,43 @@
+---
+## SVN export local copy of prometheus values file to a common team directory
+
+- name: local SVN command to checkout export file locally on devops box
+  delegate_to: 127.0.0.1
+  shell: svn export https://SVN-REPO-PATH-TO-FILES/values.yaml /PATH-TO-TEAM-DIRECTORY-ON-LOCALHOST/checkout/values.yaml 
+  register: result_svn
+- debug: var=result_svn.stdout
+
+## ansible copy checked out file to remote host
+
+- name: Copy new values file and backup existing file
+  become: yes
+  copy:
+    src: /PATH-TO-TEAM-DIRECTORY/checkout/values.yaml 
+    dest: /PATH-ON-TARGET-HOST-PROMETHEUS-SERVER-HELM-CHART/values.yaml
+    owner: cloud-user
+    group: wheel
+    mode: u+rwx,g+rwx,o+r
+    backup: yes
+  register: result_backup_path
+- debug: var=result_backup_path.backup_file
+
+## backup file is created inside helm chart folder, you must move backup file outside otherwise you'll have a huge helm chart
+## and helm will not be able to function above 1 Meg helm charts
+
+- name: Move ansible created backup file to chart-backups
+  become: yes
+  shell: sudo mv {{ result_backup_path.backup_file }} /PATH-ON-TARGET-HOST-FOR-BACKUPS-NOT-IN-HELM-CHART-DIRECTORY
+  args:
+    chdir: /PATH-ON-TARGET-HOST-PROMETHEUS-SERVER-HELM-CHART-WHERE-VALUES-FILE-IS/
+  register: result_shell_move
+- debug: var=result_shell_move.stdout_lines
+
+## perform helm command on target host
+
+- name: Perform Helm upgrade on Prometheus
+  become: yes
+  shell: sudo /usr/local/sbin/helm upgrade prometheus HELM-CHART-REPO -f values.yaml
+  args:
+    chdir: /PATH-ON-TARGET-HOST-PROMETHEUS-SERVER-HELM-CHART-WHERE-VALUES-FILE-IS/
+  register: result_shell_update
+- debug: var=result_shell_update.stdout_lines
