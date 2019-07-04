@@ -1,0 +1,153 @@
+# THIS CONFIGURATION IS USED TO INITIALLY SETUP SSH ON A MASTER HOST
+# THIS CONFIG ALLOWS USERS ON TARGET HOSTS TO COPY THEIR KEYS
+# ONTO THIS HOST USING A PRE-EXISTING USER AND PASSWORD 
+# ONCE THE KEYS ARE COPIED TO THE PRE-EXISTING USER, THE PASSWORD REQUIREMENT
+# IS NO LONGER NEEDED.  HOWEVER, THIS CONFIG MUST BE CHANGED AFTER ALL
+# AUTHORIZED USERS HAVE COPIED THEIR KEYS OVER.
+
+#	$OpenBSD: sshd_config,v 1.101 2017/03/14 07:19:07 djm Exp $
+# This is the sshd server system-wide configuration file.  See
+# sshd_config(5) for more information.
+# This sshd was compiled with PATH=/usr/bin:/bin:/usr/sbin:/sbin
+# The strategy used for options in the default sshd_config shipped with
+# OpenSSH is to specify options with their default value where
+# possible, but leave them commented.  Uncommented options override the
+# default value.
+
+# IM"PORT"ANT
+# keep port choice below 1024 since these can only opened by root
+
+Port 969
+
+#AddressFamily any
+#ListenAddress 0.0.0.0
+#ListenAddress ::
+#HostKey /etc/ssh/ssh_host_rsa_key
+#HostKey /etc/ssh/ssh_host_ecdsa_key
+#HostKey /etc/ssh/ssh_host_ed25519_key
+
+# Ciphers and keying
+#RekeyLimit default none
+
+# Logging
+#SyslogFacility AUTH
+#LogLevel INFO
+
+# Authentication:
+
+#LoginGraceTime 2m
+#PermitRootLogin prohibit-password
+#HostbasedAuthentication no
+PermitRootLogin no
+#StrictModes yes
+#MaxAuthTries 6
+#MaxSessions 10
+#RSAAuthentication yes
+#PubkeyAuthentication yes
+
+# Expect .ssh/authorized_keys2 to be disregarded by default in future.
+#AuthorizedKeysFile	.ssh/authorized_keys .ssh/authorized_keys2
+#AuthorizedPrincipalsFile none
+#AuthorizedKeysCommand none
+#AuthorizedKeysCommandUser nobody
+
+# For this to work you will also need host keys in /etc/ssh/ssh_known_hosts
+#HostbasedAuthentication no
+
+# Change to yes if you don't trust ~/.ssh/known_hosts for
+#IgnoreUserKnownHosts no
+
+# Don't read the user's ~/.rhosts and ~/.shosts files
+IgnoreRhosts yes
+
+# To disable tunneled clear text passwords, change to no here!
+# CHANGE TO YES FOR NEW USER SSH-COPY-ID KEY PROCESS, AFTER ALL AUTHORIZED USERS
+# HAVE COPIED THEIR KEYS OVER, YOU NEED TO CHANGE THIS BACK TO 'NO' AND RESTART SSHD
+PasswordAuthentication yes
+
+# DONT' ALLOW EMPTY PASSWORDS--- EVER... 
+PermitEmptyPasswords no
+
+# Change to yes to enable challenge-response passwords (beware issues with
+# some PAM modules and threads)
+ChallengeResponseAuthentication no
+
+# Kerberos options
+#KerberosAuthentication no
+#KerberosOrLocalPasswd yes
+#KerberosTicketCleanup yes
+#KerberosGetAFSToken no
+
+# GSSAPI options
+#GSSAPIAuthentication no
+#GSSAPICleanupCredentials yes
+#GSSAPIStrictAcceptorCheck yes
+#GSSAPIKeyExchange no
+
+# Set this to 'yes' to enable PAM authentication, account processing,
+# and session processing. If this is enabled, PAM authentication will
+# be allowed through the ChallengeResponseAuthentication and
+# PasswordAuthentication.  Depending on your PAM configuration,
+# PAM authentication via ChallengeResponseAuthentication may bypass
+# the setting of "PermitRootLogin without-password".
+# If you just want the PAM account and session checks to run without
+# PAM authentication, then enable this but set PasswordAuthentication
+# and ChallengeResponseAuthentication to 'no'.
+
+# CHANGE TO YES FOR NEW USER SSH-COPY-ID KEY PROCESS, THEN ONCE 
+# THE USER COPIES THE KEY, YOU NEED TO CHANGE THIS BACK TO NO AND RESTART SSHD
+UsePAM yes
+
+# NETWORK RELATED
+#AllowAgentForwarding yes
+#AllowTcpForwarding yes
+#GatewayPorts no
+
+# DON'T ALLOW X11 SESSIONS TO FORWARD DATA
+X11Forwarding no
+#X11DisplayOffset 10
+#X11UseLocalhost yes
+#PermitTTY yes
+
+# DON'T NEED TO PRINT MESSAGE OF THE DAY, ALTHOUGH THIS IS OVERRIDDEN WITH THE BANNER
+PrintMotd no
+#PrintLastLog yes
+#TCPKeepAlive yes
+#UseLogin no
+#PermitUserEnvironment no
+#Compression delayed
+#ClientAliveInterval 0
+#ClientAliveCountMax 3
+#UseDNS no
+#PidFile /var/run/sshd.pid
+#MaxStartups 10:30:100
+#PermitTunnel no
+#ChrootDirectory none
+#VersionAddendum none
+
+# no default banner path, otherwise specify a text file with the MOTD or banner 
+# here we see one called "issue" inside /etc	 
+#Banner no
+Banner /etc/issue
+
+# Allow client to pass locale environment variables
+AcceptEnv LANG LC_*
+
+# override default of no subsystems
+Subsystem	sftp	/usr/lib/openssh/sftp-server
+
+# Example of overriding settings on a per-user basis
+#Match User anoncvs
+#	X11Forwarding no
+#	AllowTcpForwarding no
+#	PermitTTY no
+#	ForceCommand cvs server
+
+
+# KEEP THIS COMMENTED UNTIL AFTER YOU HAVE COPIED KEYS
+# AFTER KEYS HAVE BEEN COPIED, UNCOMMEND THIS TO EXPLICITLY LIMIT AUTHENTICATION METHOD
+#AuthenticationMethods publickey
+
+AllowUsers user2 user1 deploy
+DenyUsers root
+
