@@ -1,0 +1,327 @@
+## Setup openssh on a master control host and two target hosts
+
+### Purpose:  
+You probably have plenty of experience using ssh to log in and logout of hosts, but testing Ansible requires you to familiarize yourself with the sshd server and its config parameters as well as how to set up ssh user accounts.  Luckily most of the default parameters are what you want but it's a great idea to get to know them and follow best practices for getting Ansible to play well with others and to do so securely.  This set of documents outlines simple and secure methods to get you up and running with a master control host able to provision two target hosts using Ansible. 
+
+### Overview:
+This activity will be done two major steps:  
+- minimizing security on each host in order to copy ssh keys using new user passwords
+- once all hosts can connect to each other and have the appropriate users and shared keys, we will lock them all down with best ssh security practices
+
+What does that mean in reality... We will lower the security of the master host to make sure the same user named "deploy" can communicate in all directions between the master to the targets and the targets to the master and the targets to the targets - and then we will lock it down so that there is ONE WAY communication from the master to the targets only.  This will give you a good run through of ssh in an omni-directional environment, and then changing the config files of each to lock them down.  Plus it's just really cool to have this kind of power knowing that you are protected against most attacks!
+
+### Pre-requisites:  (what I used)
+- Linux Ubuntu 18.04 on all three hosts
+- master host:  192.168.0.1
+- target host:  192.168.0.2
+- target host:  192.168.0.3
+- sudo access to all three hosts
+- openssh server installed on all three hosts, for super quick and easy installation please see:
+
+https://linuxconfig.org/how-to-install-ssh-server-on-ubuntu-18-04-bionic-beaver-linux
+
+### Very helpful ssh docs:
+https://www.ssh.com/ssh/sshd_config/
+
+### Configure master control host
+
+1) Type the following to make a backup of the original sshd_config server file on the master host and then take a look and edit some of the parameters:
+```
+sudo cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak
+sudo nano /etc/ssh/sshd_config
+
+```
+2) Let's NOT use port 22... Probably THE single most important step!  Let's make sure the ssh access port on all our hosts is something else.  But which port should we use??  Well, any port number under port 1024 is preferable since root can only use up to port 1024.  You decide what is best for you, but I'd suggest looking at this wiki of TCP/UDP ports, you don't want to intefere with something that is running or might plan to run in the future.
+
+https://en.wikipedia.org/wiki/List_of_TCP_and_UDP_port_numbers
+
+Also, definitely check out the story of how SSH got to use port 22, it's surprising:
+
+https://www.ssh.com/ssh/port#sec-The-story-of-getting-SSH-port-22
+
+
+In the config file on the master host below the line that reads #Port 22 type in a port you want to use, in this tutorial we will use 969, feel free to pick your own, but keep it as I said below 1024:
+```
+Port 969
+
+```
+
+In the config file of your master host, scan through it and make sure your file has ONLY the following lines UNCOMMENTED with the following settings.  Comment everything else except these.  Most of these are pretty obvious.  I have this set up so that my target hosts' "deploy" user is the only one that can access my master host.
+
+```
+PermitRootLogin no
+
+IgnoreRhosts yes
+
+PasswordAuthentication yes
+
+PermitEmptyPasswords no
+
+ChallengeResponseAuthentication no
+
+UsePAM yes
+
+X11Forwarding no
+
+PrintMotd no
+
+AcceptEnv LANG LC_*
+
+Subsystem       sftp    /usr/lib/openssh/sftp-server
+
+```
+3) At the bottom of the file let's specify exactly who can get into the master control host and by which method.  user1 and user2 are just example users, edit as needed.  Basically, you don't want anyone else other than trusted users to get into your master host:
+```
+AllowUsers deploy user1 user2
+DenyUsers root
+
+```
+
+4) After making the changes save and exit your editor and restart the sshd service.  I prefer to do it the long way by checking status at each point for verification, it's not a bad habit either plus you are logged as doing this in the sudo history logs, could be required for your job:
+```
+sudo service sshd status
+sudo service sshd stop
+sudo service sshd status
+sudo service sshd start
+
+```
+
+### Add the "deploy" user to the master host
+
+5) We will use password "deploy" as well just to keep it simple. Type the following.  This will give user deploy a home directory with the bash shell, give a password "deploy" and then add them to the sudo group.
+
+```
+sudo useradd --create-home deploy -s /bin/bash 
+sudo passwd deploy
+## this will prompt you twice for password --- deploy  --- is the password we will use
+sudo adduser deploy sudo
+```
+
+### Setup the deploy user on the master host:
+
+6) Now that we have a user, with a home directory , we need to become that user and make a few changes to the file structure in their home directory.  We are making an .ssh directory, changing the permissions to owner r, w, x.  Creating a blank file called "authorized_keys", changing permissions to owner r, w:
+
+```
+su deploy
+## enter password "deploy"
+
+cd /home/deploy
+mkdir .ssh
+chmod 700 .ssh/
+cd .ssh/
+touch authorized_keys
+chmod 600 authorized_keys
+
+```
+
+
+### Target host "deploy" user setup
+
+7) OK... this is where it gets pretty repetitive.  Your master host is ready to receive keys from your target host user "deploy", and then we will lock it down.  Go to your target hosts and create a user named "deploy" in the same way we did with the master host.  
+```
+sudo useradd --create-home deploy -s /bin/bash 
+sudo passwd deploy
+## this will prompt you twice for password --- deploy  --- is the password we will use
+sudo adduser deploy sudo
+```
+8)  Now that we have a user, with a home directory , we need to become that user and make a few changes to the file structure in their home directory.  We are making an .ssh directory, changing the permissions to owner r, w, x.  Creating a blank file called "authorized_keys", changing permissions to owner r, w:
+```
+su deploy
+## enter password "deploy"
+
+cd /home/deploy
+mkdir .ssh
+chmod 700 .ssh/
+cd .ssh/
+touch authorized_keys
+chmod 600 authorized_keys
+
+```
+9)  Do this for each target host you have.
+
+10)  For the purpose of connecting to the master host, we need to generate keys and copy them to the master host so that our targets can communicate securely with the master.  We need to be logged in as our "deploy" user on our target host.  An excellent resource to fall back on for this is:
+
+https://www.ssh.com/ssh/copy-id
+
+
+```
+cd /home/deploy/.ssh/
+ssh-keygen
+
+## in this tutorial we just press enter for the rest of the responses 
+## however passphrases are more secure.
+```
+
+11) A private and public key file will be created in the .ssh/ directory.  You will be copying the public key of your deploy user from each target host to the master host in the next step. Master_host_IP is whatever your master host IP is.  In this example we use 192.168.0.1 and port 969.
+```
+ssh-copy-id -i id_rsa.pub "deploy@192.168.0.1 -p 969"
+
+# this will prompt you to accept the transfer of keys and the password of the deploy user.
+# it will accept the key and then boot you out so that you can login via ssh using the official key
+# login again as the prompt suggests:
+
+ssh -p 969 deploy@192.168.0.1
+
+# this should log you into the master host as the deploy user.  test it out and then exit.
+
+```
+
+
+### Adjusting target host sshd_config files
+12)  Now that you have "deploy" users all all three hosts with .ssh directories and files to accept authorized keys, you just need to adjust the sshd_config files on the target hosts to really begin communicating well.  We need to make sure PAM (Password authentication) is set to YES initially to copy over our keys from the master to the target host.  On your target hosts:
+
+```
+sudo cp /etc/ssh/sshd_config /etc/ssh/sshd_config.bak
+sudo nano /etc/ssh/sshd_config
+
+```
+In the config file make sure these are UNCOMMENTED and the settings are as you see here:
+
+```
+Port 969
+
+PermitRootLogin no
+
+IgnoreRhosts yes
+
+PasswordAuthentication yes
+
+PermitEmptyPasswords no
+
+ChallengeResponseAuthentication no
+
+UsePAM yes
+
+X11Forwarding no
+
+PrintMotd no
+
+AcceptEnv LANG LC_*
+
+Subsystem       sftp    /usr/lib/openssh/sftp-server
+
+```
+At the bottom of the file add:
+```
+AllowUsers deploy
+DenyUsers root
+
+```
+
+After making the changes save and exit your editor and restart the sshd service.  I prefer to do it the long way by checking status at each point for verification, it's not a bad habit either plus you are logged as doing this in the sudo history logs, could be required for your job:
+```
+sudo service sshd status
+sudo service sshd stop
+sudo service sshd status
+sudo service sshd start
+```
+
+13)  For the purpose of connecting to the target hosts, we need to generate keys and copy them to the targets so that our master can communicate securely with our targets - the way Ansible does.  We need to be logged in as our "deploy" user on our master host.  
+
+```
+cd /home/deploy/.ssh/
+ssh-keygen
+
+## in this tutorial we just press enter for the rest of the responses 
+## however passphrases are more secure.
+```
+
+14) A private and public key file will be created in the .ssh/ directory.  You will be copying the public key of your deploy user from the master host to the target hosts in the next step.
+```
+ssh-copy-id -i id_rsa.pub "deploy@192.168.0.3 -p 969"
+
+# this will prompt you to accept the transfer of keys and the password of the deploy user.
+# it will accept the key and then boot you out so that you can login via ssh using the official key
+# login again as the prompt suggests:
+
+ssh -p 969 deploy@192.168.0.3
+
+# this should log you into the target host as the deploy user.  test it out and then exit.
+
+```
+15)  Repeat this process for the other target host.
+
+16)  Once you're done, it is recommended that you experiment a little bit:
+- try going from target 1 to master host
+- try going from target 2 to master host
+- try going from master host to both target hosts
+- try going from target to target hosts
+
+If you're able to get the deploy user all around the block to and from every host... You're doing great!
+
+
+
+### Just to make sure, let's try out secure copy
+17)  This is a great idea to verify that you can actually move files to your target host (192.168.0.3) before you loosen the leash of Ansible.  From your master host we will create an empty file called test_scp_file, copy it securely over scp to the deploy user's home directory and rename it:
+```
+touch test_scp_file.txt
+
+scp -P 969 ./test_scp_file.txt deploy@192.168.0.3:~/test_scp_file_renamed.txt
+
+```
+18)  If you are successful at this step, it's definitely time to start using Ansible!
+
+## Now let's lock down all the hosts
+
+19) Backup your working sshd_config files ON EVERY HOST to something handy like sshd_config_COPYKEYS.  In case we need to add users to the target hosts, this version would come in handy as a reference.
+```
+sudo cp /etc/ssh/sshd_config /etc/ssh/sshd_config_COPYKEYS.bak
+sudo nano /etc/ssh/sshd_config
+```
+20)  Edit the config files to have ONLY the following UNCOMMENTED or set to yes / no
+
+```
+Port 969
+
+PermitRootLogin no
+
+PubKeyAuthentication yes
+
+IgnoreRhosts yes
+
+PasswordAuthentication no
+
+PermitEmptyPasswords no
+
+ChallengeResponseAuthentication no
+
+UsePAM no
+
+X11Forwarding no
+
+PrintMotd no
+
+AcceptEnv LANG LC_*
+
+Subsystem       sftp    /usr/lib/openssh/sftp-server
+
+```
+At the bottom of the file add make sure you add this line, and maybe we only allow deploy, it's up to you:
+```
+AuthenticationMethods publickey
+AllowUsers deploy
+DenyUsers root
+
+```
+
+21) After making the changes save and exit your editor and restart the sshd service.  I prefer to do it the long way by checking status at each point for verification, it's not a bad habit either plus you are logged as doing this in the sudo history logs, could be required for your job:
+```
+sudo service sshd status
+sudo service sshd stop
+sudo service sshd status
+sudo service sshd start
+```
+
+## Final Verification
+
+22) Double check to verify everything works by performing at a minimum an ssh from Master to each host AND do another scp from Master to host just to be double sure.
+```
+ssh -p 969 deploy@192.168.0.3
+```
+and perform an scp from master to targets:
+```
+touch test_scp_file.txt
+scp -P 969 ./test_scp_file.txt deploy@192.168.0.3:~/test_scp_file_renamed2.txt
+```
+
+
