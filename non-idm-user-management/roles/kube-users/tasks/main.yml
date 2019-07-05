@@ -39,6 +39,5 @@
   become: yes
   authorized_key:
     user: "{{ item.key }}"
-#    key: "{{ lookup('file', 'files/keys/' + item.key) }}"
     key: "{{ lookup('file', 'files/' + hosted_env + '/keys/' + item.key) }}"
   with_dict: "{{ users }}"
