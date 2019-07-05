@@ -1,0 +1,9 @@
+---
+users:
+## DEV
+  USERNAME:
+    comment: "YOUR REAL NAME"
+    groups: [ 'wheel', 'sudousrs' ]
+  ANOTHER-USER:
+    comment: "THEIR REAL NAME"
+    groups: [ 'wheel', 'sudousrs' ]
