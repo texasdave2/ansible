@@ -1,0 +1,6 @@
+---
+- hosts: all
+  roles:
+    - kube-users
+  vars_files:
+    - vars/kube-users/{{hosted_env}}/main.yml
