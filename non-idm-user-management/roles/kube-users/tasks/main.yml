@@ -1,0 +1,44 @@
+---
+- name: Create groups
+  become: yes
+  group:
+    name: "{{ item }}"
+  with_items:
+    - sudousrs
+    - kubeusrs
+
+- name: Add sudousrs and kubeusrs groups to /etc/sudoers
+  become: yes
+  blockinfile:
+    backup: yes
+    path: /etc/sudoers
+    block: |
+      Cmnd_Alias SU_ROOT=/usr/bin/su "",/usr/bin/su -,/usr/bin/su root,/usr/bin/su - root,/usr/bin/su -[a-z]*,/bin/su "",/bin/su -,/bin/su root,/bin/su - root,/bin/su -[a-z]*
+      Cmnd_Alias SHELLS=/bin/bash,/bin/csh,/bin/jsh,/bin/ksh,/bin/pfcsh,/bin/pfksh,/bin/pfsh,/bin/sh,/bin/tcsh,/bin/zsh, /sbin/jsh,/sbin/sh,/usr/bin/bash,/usr/bin/csh,/usr/bin/jsh,/usr/bin/ksh,/usr/bin/pfcsh,/usr/bin/pfksh,/usr/bin/pfsh,/usr/bin/sh,/usr/bin/tcsh,/usr/bin/zsh
+      Cmnd_Alias KUBEGET=/usr/local/bin/kubectl get *
+      Cmnd_Alias KUBEDESCRIBE=/usr/local/bin/kubectl describe *
+      Cmnd_Alias KUBEEXEC=/usr/local/bin/kubectl exec *
+      Cmnd_Alias KUBELOGS=/usr/local/bin/kubectl logs *
+      %sudousrs ALL=(ALL)    NOPASSWD: ALL,!SU_ROOT,!SHELLS
+      %kubeusrs ALL=NOPASSWD: !SU_ROOT,!SHELLS,KUBEGET,KUBEDESCRIBE,KUBEEXEC,KUBELOGS
+
+- name: Create users
+  become: yes
+  user:
+    name: "{{ item.key }}"
+    groups: "{{ item.value.groups }}"
+    comment: "{{ item.value.comment }}"
+  with_dict: "{{ users }}"
+
+- name: Set user to never expire
+  become: yes
+  command: chage -I -1 -m 0 -M 99999 -E -1 {{ item.key }}
+  with_dict: "{{ users }}"
+
+- name: Copy SSH key
+  become: yes
+  authorized_key:
+    user: "{{ item.key }}"
+#    key: "{{ lookup('file', 'files/keys/' + item.key) }}"
+    key: "{{ lookup('file', 'files/' + hosted_env + '/keys/' + item.key) }}"
+  with_dict: "{{ users }}"
