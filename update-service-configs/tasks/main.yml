@@ -48,3 +48,13 @@
   service:
     name: alertmanager
     state: started
+    
+
+## check to see the state of the alertmanager service status
+
+- name: Check status of alertmanager service
+  service_facts:
+  register: service_state
+- debug:
+    var: service_state.ansible_facts.services["alertmanager.service"].state
+
