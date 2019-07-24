@@ -5,3 +5,4 @@ The ansible 'backup files' directory is a handy way to let ansible safely backup
 
 The non-idm-user-management files are handy to manage users with ansible for hosts that aren't controlled by IDM.  This allows the admin to easily and safely pull users in and out of priviledged groups as well as allowing them whitelisted kubectl commands in the sudoers file for higher environments where a user needs some specific privileges.
 
+update service uses the ansible service start / stop feature, handy for remotely modifying service config files and bringing up the services after the edits.
