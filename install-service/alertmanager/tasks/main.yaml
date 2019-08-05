@@ -1,0 +1,94 @@
+---
+## THIS PLAYBOOK CONTAINS TASKS TO INSTALL ALERTMANAGER ON A NEW HOST AS WELL AS
+## INSTALLING THE ALERTMANAGER CONFIG FILE WHERE EMAIL AND PAGER CONFIGS ARE SET
+##
+
+## add alertmanager user no login no shell
+
+- name: Add the user alertmanager
+  become: yes
+  user:
+    name: alertmanager
+    create_home: no
+    shell: /sbin/nologin
+
+## create directories for alertmanager
+
+- name: Create directories for alertmanager files and binaries
+  become: yes
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: alertmanager
+    group: wheel
+    mode: 0775
+  with_items:
+    - '/etc/alertmanager'
+    - '/etc/alertmanager/template'
+    - '/var/lib/alertmanager/data'
+
+## copy binaries from devops host to remote usr local bin
+
+- name: Copy alertmanager and amtool binaries to remote host
+  become: yes
+  copy:
+    src: "{{ item }}"
+    dest: /usr/local/bin/
+    owner: root
+    group: root
+    mode: 0755
+  with_items:
+    - 'alertmanager'
+    - 'amtool'
+
+## copy generic config file so that service starts
+
+- name: Copy generic alertmanager config file for startup
+  become: yes
+  copy:
+    src: "alertmanager.yml"
+    dest: /etc/alertmanager/alertmanager.yml
+    owner: alertmanager
+    group: wheel
+    mode: 0644
+
+## copy alertmanager service file
+
+- name: Copy alertmanager service file
+  become: yes
+  copy:
+    src: "alertmanager.service"
+    dest: /etc/systemd/system/
+    owner: root
+    group: root
+    mode: 0644
+
+## need daemon reload at this point
+
+- name: Daemon reload
+  become: yes
+  systemd:
+    daemon_reload: yes
+
+## enable and start alertmanager service
+
+- name: Enable and start alertmanager service
+  become: yes
+  systemd:
+    name: alertmanager
+    enabled: yes
+    state: started
+
+## ansible copy file to remote host
+## notify handler to send sighup to alertmanager service after all tasks are done
+
+- name: Copy alertmanager custom configs then refresh service
+  become: yes
+  copy:
+    src: "{{ hosted_env }}/alertmanager.yml"
+    dest: /etc/alertmanager/alertmanager.yml
+    owner: alertmanager
+    group: wheel
+    mode: 0644
+  notify: alertmanager config refresh
+  tags: configonly
