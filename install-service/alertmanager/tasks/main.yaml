@@ -85,7 +85,7 @@
 - name: Copy alertmanager custom configs then refresh service
   become: yes
   copy:
-    src: "{{ hosted_env }}/alertmanager.yml"
+    src: "{{ env }}/alertmanager.yml"
     dest: /etc/alertmanager/alertmanager.yml
     owner: alertmanager
     group: wheel
